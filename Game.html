@@ -1,0 +1,537 @@
+<head>
+	<title>Mario Clone</title>
+	<meta charset="UTF-8">
+</head>
+<body>
+    <br><canvas id="myCanvas" width="1000" height="500" style="border:1px solid #cccccc;"></canvas>
+
+    <script type="text/javascript">
+
+//Sprite
+class Sprite { 
+	constructor(x1, y1, w1, h1, image_url) {
+		this.x = x1;
+		this.y = y1;
+		this.w = w1;
+        this.h = h1;
+		this.image = new Image();
+		this.image.src = image_url;
+        this.prevx;
+        this.prevY;
+	}
+	
+    isPipe() {
+        return false;
+    }
+    isMario() {
+        return false;
+    }
+    isGoomba() {
+        return false;
+    }
+    isFireball() {
+        return false;
+    }
+    isGoombaFire() {
+        return false;
+    }
+
+    checkCollision(spriteOne, spriteTwo) {
+        this.spriteOneTop = spriteOne.y;
+        this.spriteOneBottom = spriteOne.y + spriteOne.h;
+        this.spriteOneLeft = spriteOne.x;
+        this.spriteOneRight = spriteOne.x + spriteOne.w;
+        
+        this.spriteTwoTop = spriteTwo.y;
+        this.spriteTwoBottom = spriteTwo.y + spriteTwo.h;
+        this.spriteTwoLeft = spriteTwo.x;
+        this.spriteTwoRight = spriteTwo.x + spriteTwo.w;
+        
+        if((this.spriteOneRight < this.spriteTwoLeft) 
+           || (this.spriteOneLeft > this.spriteTwoRight) 
+           || (this.spriteOneBottom < this.spriteTwoTop) 
+           || (this.spriteOneTop > this.spriteTwoBottom)) {
+            return false
+        }
+        
+        else{
+            return true
+        }
+    }
+}
+
+//Mario
+class Mario extends Sprite
+{
+    //Need width and height
+	constructor(x, y, w, h, image_url) {
+		super(x, y, w, h, image_url);
+        
+        this.prevX = x;
+        this.prevY = y;
+        this.velocityVertical = 10;
+        this.currentImage = 0;
+        this.imageMario = [];
+        this.jumpTime = 0;
+        let rightFacing = true;
+
+        for(let i = 0; i < 5; i++) {
+            var imageTemp = new Image();
+            imageTemp.src = "mario" + (i + 1) + ".png";
+            this.imageMario.push(imageTemp.src);
+        }
+	}
+	
+	update() {
+        this.velocityVertical += 10;
+        this.y += this.velocityVertical;
+
+        this.jumpTime++;
+
+        if(this.y > 450 - this.h) {
+            this.velocityVertical = 0;
+            this.jumpTime = 0;
+
+            this.y = 450 - this.h;
+        }
+	}
+	
+    removeFromPipe(pipe) {
+        //Coming from left moving right
+        if(((this.x + this.w) >= pipe.x) && ((this.prevX + this.w) <= pipe.x)) {
+            //console.log("left to right");
+            this.x = pipe.x - this.w;
+        }
+        //Coming from right moving left
+        if ((this.x <= (pipe.x + pipe.w)) && (this.prevX >= (pipe.x + pipe.w))) {
+            //console.log("right to left");
+            this.x = pipe.x + pipe.w;
+        }
+
+        //Coming from above moving down
+        if(((this.y + this.h) >= pipe.y) && ((this.prevY + this.h) <= pipe.y)) {
+            //console.log("up to down");
+            this.y = pipe.y - this.h;
+        }
+        //Coming from below moving up
+        if((this.y <= (pipe.y + pipe.h)) && (this.prevY >= (pipe.y + pipe.h))) {  
+            //console.log("down to up");
+            this.y = pipe.y + pipe.h;
+
+            this.velocityVertical += 10;
+            this.y += this.velocityVertical;
+        }
+    }
+
+    changeImageState() {
+        this.currentImage = this.currentImage + 1;
+        if(this.currentImage > 4) {
+            this.currentImage = 0;
+        }
+        this.image.src = this.imageMario[this.currentImage];
+    }
+
+    setPreviousPosition() {
+        this.prevX = this.x;
+        this.prevY = this.y;
+    }
+    
+    isMario() {
+        return true;
+    }
+
+    checkCollision(spriteOne, spriteTwo) {
+        let spriteOneTop = spriteOne.y;
+        let spriteOneBottom = spriteOne.y + spriteOne.h;
+        let spriteOneLeft = spriteOne.x;
+        let spriteOneRight = spriteOne.x + spriteOne.w;
+
+        let spriteTwoTop = spriteTwo.y;
+        let spriteTwoBottom = spriteTwo.y + spriteTwo.h;
+        let spriteTwoLeft = spriteTwo.x -5;
+        let spriteTwoRight = spriteTwo.x - 5 + spriteTwo.w;
+
+        if(spriteOneRight < spriteTwoLeft) {
+            //console.log("check1");
+            return false;
+        }
+        else if(spriteOneLeft > spriteTwoRight) {
+            //console.log("check2");
+            return false;
+        }
+        else if(spriteOneBottom < spriteTwoTop) {
+            //console.log("check3");
+            return false;
+        }
+        else if(spriteOneTop > spriteTwoBottom) {
+            //console.log("check4");
+            return false;
+        }
+        else{
+            //console.log("check5");
+            return true;
+        }
+    }
+}
+
+//Pipe
+class Pipe extends Sprite {
+    constructor(x, y, w, h, image_url) {
+        super(x, y, w, h, image_url);
+    }
+
+    isPipe() {
+        return true;
+    }
+
+    update() {
+
+    }
+}
+
+//Goomba
+class Goomba extends Sprite {
+    constructor(x, y, w, h, image_url) {
+        super(x, y, w, h, image_url);
+
+        this.x = x;
+        this.y = y;
+        this.w = w;
+        this.h = h;
+
+        let isOnFire = false;
+        let selfDestruct = false;
+        let time = 0;
+        let prevX;
+        let prevY;
+        let velocityVertical = 10;
+        let velocityHorizontal = 5;
+
+        this.currentImage = 0;
+        this.imageGoomba = [];
+        this.imageTemp1 = new Image();
+        this.imageTemp2 = new Image();
+        this.imageTemp1.src = "goomba1.png";
+        this.imageTemp2.src = "goomba2.png"
+        this.imageGoomba.push(this.imageTemp1);
+        this.imageGoomba.push(this.imageTemp2);
+    }
+
+    isGoomba() {
+        return true;
+    }
+
+    changeImageState() {
+        this.currentImage = this.currentImage + 1;
+        
+        if(this.currentImage > 1) {
+            this.currentImage = 0;
+        }
+    }
+
+    update() {
+        // changeImageState();
+        this.velocityVertical += 10;
+        this.y += this.velocityVertical;
+        this.x += this.velocityHorizontal;
+
+        if(this.y > 450 - this.h) {
+            this.velocityVertical = 0;
+            this.y = 450 - this.h
+        }
+    }
+
+    setPreviousPosition() {
+        this.prevX = this.x;
+        this.prevY = this.y;
+    }
+    
+    removeFromPipe(pipe) {
+        //Coming from left moving right
+        if(((this.x + this.w) >= pipe.x) && ((this.prevX + this.w) <= pipe.x)) {
+            this.x = pipe.x - this.w;
+            this.rightCollision = true;
+            this.leftCollision = false;
+        }
+        //Coming from right moving left
+        if ((this.x <= (pipe.x + pipe.w)) && (this.prevX >= (pipe.x + pipe.w))) {
+            this.x = pipe.x + pipe.w;
+            this.rightCollision = false;
+            this.leftCollision = true;
+        }
+    }
+}
+
+//Fireball
+class Fireball extends Sprite {
+    constructor(x, y, w, h, image_url) {
+		super(x, y, w, h, image_url);
+        
+        this.x = x;
+        this.y = y;
+        this.w = w;
+        this.h = h;
+
+        this.prevX = x;
+        this.prevY = y;
+        this.velocityVertical = 10;
+        this.velocityHorizontal = 10;
+	}
+
+    update() {
+        this.x += this.velocityHorizontal;
+        this.y += this.velocityVertical;
+
+        if(this.y > 450 - this.h) {
+            this.velocityVertical = -10;
+        }
+        if(this.y < 400 - this.h) {
+            this.velocityVertical = 10;
+        }
+    }
+
+    isFireball() {
+        return true;
+    }
+}
+
+//GoombaFire
+class GoombaFire extends Sprite {
+    constructor(x, y, w, h, image_url) {
+        super(x, y, w, h, image_url);
+
+        this.x = x;
+        this.y = y;
+        this.w = w;
+        this.h = h;
+
+        let isOnFire = false;
+        let selfDestruct = false;
+        let time = 0;
+        let prevX;
+        let prevY;
+        let velocityVertical = 10;
+        let velocityHorizontal = 5;
+
+        let rightCollision = false;
+        let leftCollision = false;
+        this.imageGoombaFire = new Image();
+        this.imageGoombaFire.src = "goomba_fire.png";
+    }
+
+    checkCollisionFire(sprite) {
+        this.goombaTop = this.y;
+        this.goombaBottom = this.y + this.h;
+        this.goombaLeft = this.x;
+        this.goombaRight = this.x + this.w;
+        
+        this.fireTop = sprite.y;
+        this.fireBottom = sprite.y + sprite.h;
+        this.fireLeft = sprite.x;
+        this.fireRight = sprite.x + sprite.w;
+
+        this.returnVal;
+
+        //If is not colliding
+        if((goombaRight < fireLeft) || (goombaLeft > fireRight) || (goombaBottom < fireTop) || (goombaTop > fireBottom)) {
+            returnVal = false;
+        }
+        //If it is colliding
+        else {
+            //System.out.println("collision");
+            returnVal = true;
+        }
+
+        return returnVal;
+    }
+
+    setPreviousPosition() {
+        this.prevX = this.x;
+        this.prevY = this.y;
+    }
+}
+
+//Model
+class Model
+{
+	constructor()
+	{
+		this.sprites = [];
+		this.mario = new Mario(50, 200, 60, 95, "mario1.png");
+        this.pipe1 = new Pipe(560, 278, 55, 400, "pipe.png");
+        this.pipe2 = new Pipe(150, 328, 55, 400, "pipe.png");
+        this.pipe3 = new Pipe(-40, 296, 55, 400, "pipe.png");
+        this.pipe4 = new Pipe(440, 280, 55, 400, "pipe.png");
+        this.pipe5 = new Pipe(500, 200, 55, 400, "pipe.png");
+        this.goomba1 = new Goomba(193, 368, 32, 32, "goomba1.png");
+        this.goomba2 = new Goomba(193, 368, 32, 32, "goomba1.png");
+        this.goomba3 = new Goomba(193, 368, 32, 32, "goomba1.png");
+        this.goomba4 = new Goomba(193, 368, 32, 32, "goomba1.png");
+        this.goomba5 = new Goomba(193, 368, 32, 32, "goomba1.png");
+        this.goomba6 = new Goomba(492, 368, 32, 32, "goomba1.png");
+        this.goombaFireTimer = 0;
+
+		this.sprites.push(this.mario);
+		this.sprites.push(this.pipe1);
+		this.sprites.push(this.pipe2);
+		this.sprites.push(this.pipe3);
+		this.sprites.push(this.pipe4);
+        this.sprites.push(this.pipe5);
+		this.sprites.push(this.goomba1);
+        this.sprites.push(this.goomba2);
+		this.sprites.push(this.goomba3);
+		this.sprites.push(this.goomba4);
+		this.sprites.push(this.goomba5);
+		this.sprites.push(this.goomba6);
+	}
+
+	update()
+	{
+		for(let i = 0; i < this.sprites.length; i++)
+		{
+			this.sprites[i].update();
+
+            if(this.sprites[i].isPipe()) {
+                if(this.mario.checkCollision(this.mario, this.sprites[i])) {
+                    this.mario.removeFromPipe(this.sprites[i]);
+                }
+            }
+        }
+	}
+
+    createFireball(x, y) {
+        this.fireball = new Fireball(this.mario.x, this.mario.y, 47, 47, "fireball.png");
+        this.sprites.push(this.fireball);
+    }
+}
+
+//View
+class View
+{
+	constructor(model)
+	{
+		this.model = model;
+		this.canvas = document.getElementById("myCanvas");	
+
+        this.imageFloor = new Image();
+        this.imageFloor.src = "marioFloor.png";
+
+    }
+
+	update()
+	{
+		let ctx = this.canvas.getContext("2d");
+		ctx.clearRect(0, 0, 1000, 500);
+		for(let i = 0; i < this.model.sprites.length; i++)
+		{
+			let sprite = this.model.sprites[i];
+			ctx.drawImage(sprite.image, sprite.x, sprite.y);
+		}
+
+        ctx.drawImage(this.imageFloor, 0, 450, 500, 101);
+        ctx.drawImage(this.imageFloor, 450, 450, 500, 101);
+	}
+}
+
+//Controller
+class Controller
+{
+	constructor(model, view)
+	{
+		this.model = model;
+		this.view = view;
+		this.key_right = false;
+		this.key_left = false;
+		this.key_up = false;
+		this.key_down = false;
+
+        this.key_space = false;
+        this.key_ctrl = false;
+
+		let self = this;
+		view.canvas.addEventListener("click", function(event) { self.onClick(event); });
+		document.addEventListener('keydown', function(event) { self.keyDown(event); }, false);
+		document.addEventListener('keyup', function(event) { self.keyUp(event); }, false);
+	}
+
+	onClick(event)
+	{
+		this.model.onclick(event.pageX - this.view.canvas.offsetLeft, event.pageY - this.view.canvas.offsetTop);
+	}
+
+	keyDown(event)
+	{
+		if(event.keyCode == 39) this.key_right = true;
+		else if(event.keyCode == 37) this.key_left = true;
+		else if(event.keyCode == 38) this.key_up = true;
+		else if(event.keyCode == 40) this.key_down = true;
+
+        else if(event.keyCode == 32) this.key_space = true;
+        else if(event.keyCode == 17) this.key_ctrl = true;
+	}
+
+	keyUp(event)
+	{
+		if(event.keyCode == 39) this.key_right = false;
+		else if(event.keyCode == 37) this.key_left = false;
+		else if(event.keyCode == 38) this.key_up = false;
+		else if(event.keyCode == 40) this.key_down = false;
+
+        else if(event.keyCode == 32) this.key_space = false;
+        else if(event.keyCode == 17) this.key_ctrl = false;
+	}
+
+	update() {
+        this.model.mario.setPreviousPosition();
+
+        if(this.key_right) {
+            this.model.mario.rightFacing = true;
+            this.scrollPos -= 8;
+            this.model.mario.x += 8;
+            this.model.mario.changeImageState();
+        }
+
+        if(this.key_left) {
+            this.model.mario.rightFacing = false;
+            this.scrollPos -= 8;
+            this.model.mario.x -= 8;
+            this.model.mario.changeImageState();
+        }
+
+        if(this.key_up || this.key_space) {
+            if(this.model.mario.jumpTime < 5) {
+                this.model.mario.velocityVertical = -25
+                this.model.mario.y += this.model.mario.velocityVertical
+            }
+        }
+
+        if(this.key_ctrl) {
+            this.key_ctrl = false;
+            this.model.createFireball(this.model.mario.x, this.model.mario.y);
+        }
+	}
+}
+
+//Game
+class Game
+{
+	constructor()
+	{
+        this.scrollPos = 0;
+		this.model = new Model();
+		this.view = new View(this.model);
+		this.controller = new Controller(this.model, this.view);
+	}
+
+	onTimer()
+	{
+		this.controller.update();
+		this.model.update();
+		this.view.update();
+	}
+}
+let game = new Game();
+let timer = setInterval(function() { game.onTimer(); }, 40);
+    </script>
+
+</body>
